@@ -1,7 +1,7 @@
 <template>
     <div class="row">
-        <div class="col-sm-3" v-for="product in products" :key="product.code">
-            <ProductCard :product="product"></ProductCard>
+        <div class="col-12 col-sm-6 col-lg-3 mb-4 d-flex align-items-stretch" v-for="product in products" :key="product.code">
+            <ProductCard :product="product" class="w-100"></ProductCard>
         </div>
     </div>
 </template>
@@ -27,5 +27,7 @@
 </script>
 
 <style scoped lang="scss">
-
+    .row {
+        margin-top: 15px;
+    }
 </style>
