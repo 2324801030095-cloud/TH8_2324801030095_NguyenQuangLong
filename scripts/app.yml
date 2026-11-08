@@ -9,6 +9,9 @@ services:
     container_name: dotnet-agent-portal-gateway
     ports:
     - 8099:8099
+    environment:
+      - ASPNETCORE_ENVIRONMENT=docker
+      - eureka__client__serviceUrl=http://eureka-server:8761/eureka/
 
   dotnet-auth-service:
     build: 
