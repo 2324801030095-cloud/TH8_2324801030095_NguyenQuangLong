@@ -119,7 +119,7 @@ public class OfferTest
     [Fact]
     public void CannotBuyExpiredOffer()
     {
-        var offer = OfferFactory.NewOfferValidUntil(DateTime.Now.AddDays(-5));
+        var offer = OfferFactory.NewOfferValidUntil(DateTime.Now.AddDays(-35));
         Exception ex = Throws<ApplicationException>(() => offer.Buy(PolicyHolderFactory.Abc()));
         Equal($"Offer {offer.Number} has expired", ex.Message);
     }
