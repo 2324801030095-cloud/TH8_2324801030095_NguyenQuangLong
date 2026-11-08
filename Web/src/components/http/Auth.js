@@ -9,13 +9,15 @@ export default {
     login(context, credentials) {
         this.clearToken();
         return context.$http.post(LOGIN_URL, credentials)
-            .then((response) => {
-                if (response.ok && response.body && response.body.token) {
+            .then(
+                (response) => {
                     localStorage.setItem(TOKEN_KEY, response.body.token);
                     localStorage.setItem(DETAILS_KEY, JSON.stringify(response.body));
+                },
+                (error) => {
+                    console.info(error);
                 }
-                return response;
-            });
+            )
     },
 
     logout() {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PolicyService.Api.Commands.Dtos;
@@ -37,8 +37,32 @@ internal class QuestionAnswerConverter : JsonConverter
 
     private static QuestionAnswer Create(JObject jsonObject)
     {
-        // examine the $type value
-        var typeName = Enum.Parse<QuestionType>(jsonObject["questionType"].ToString());
+        // Check if questionType is present (may be missing when sent from Blazor WASM)
+        var questionTypeToken = jsonObject["questionType"];
+
+        if (questionTypeToken == null)
+        {
+            // Auto-detect type from the answer value's JSON token type
+            var answerToken = jsonObject["answer"];
+            var questionCode = jsonObject["questionCode"]?.ToString() ?? "";
+
+            if (answerToken != null && (answerToken.Type == JTokenType.Integer || answerToken.Type == JTokenType.Float))
+            {
+                return new NumericQuestionAnswer
+                {
+                    QuestionCode = questionCode,
+                    Answer = answerToken.Value<decimal>()
+                };
+            }
+            // Default to ChoiceQuestionAnswer for string answers (covers both Text and Choice)
+            return new ChoiceQuestionAnswer
+            {
+                QuestionCode = questionCode,
+                Answer = answerToken?.ToString() ?? ""
+            };
+        }
+
+        var typeName = Enum.Parse<QuestionType>(questionTypeToken.ToString());
         switch (typeName)
         {
             case QuestionType.Text:

@@ -25,7 +25,6 @@
                     </b-form-input>
                 </b-form-group>
 
-                <b-alert v-if="error" show variant="danger">{{ error }}</b-alert>
                 <b-button type="button" v-on:click="login()" variant="primary">Login</b-button>
             </b-form>
 
@@ -56,26 +55,13 @@
         },
         methods: {
             login() {
-                this.error = '';
                 const credentials = {
                     login: this.credentials.username,
                     password: this.credentials.password
                 };
-                auth.login(this, credentials)
-                    .then((response) => {
-                        if (!response.ok || !response.body || !response.body.token) {
-                            this.error = response.status === 400
-                                ? 'Tên đăng nhập hoặc mật khẩu không đúng.'
-                                : `Không thể đăng nhập (HTTP ${response.status || 'không xác định'}). Kiểm tra AuthService rồi thử lại.`;
-                            return;
-                        }
-                        window.location.href = '/';
-                    })
-                    .catch((error) => {
-                        this.error = error.status === 400
-                            ? 'Tên đăng nhập hoặc mật khẩu không đúng.'
-                            : `Không thể đăng nhập (HTTP ${error.status || 'không xác định'}). Kiểm tra AuthService rồi thử lại.`;
-                    });
+                auth.login(this, credentials).then(() => {
+                    window.location.href = '/';
+                });
             },
             logout() {
                 auth.logout();

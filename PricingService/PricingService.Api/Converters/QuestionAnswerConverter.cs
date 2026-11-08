@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PricingService.Api.Commands.Dto;
@@ -38,29 +38,48 @@ internal class QuestionAnswerConverter : JsonConverter
 
     private static QuestionAnswer Create(JObject jsonObject)
     {
-        var typeName = Enum.Parse<QuestionType>(jsonObject["questionType"].ToString());
-        switch (typeName)
+        var questionCode = jsonObject["questionCode"]?.ToString() ?? "";
+        var answerToken = jsonObject["answer"];
+        var questionTypeToken = jsonObject["questionType"];
+
+        // Auto-detect when questionType is missing
+        if (questionTypeToken == null)
         {
-            case QuestionType.Text:
+            if (answerToken != null && (answerToken.Type == JTokenType.Integer || answerToken.Type == JTokenType.Float))
+                return new NumericQuestionAnswer { QuestionCode = questionCode, Answer = answerToken.Value<decimal>() };
+            return new ChoiceQuestionAnswer { QuestionCode = questionCode, Answer = answerToken?.ToString() ?? "" };
+        }
+
+        // Normalize: PolicyService uses "Numeric", PricingService uses "Number"
+        var typeStr = questionTypeToken.ToString();
+        if (typeStr.Equals("Numeric", StringComparison.OrdinalIgnoreCase))
+            typeStr = "Number";
+
+        switch (typeStr)
+        {
+            case "Text":
                 return new TextQuestionAnswer
                 {
-                    QuestionCode = jsonObject["questionCode"].ToString(),
-                    Answer = jsonObject["answer"].ToString()
+                    QuestionCode = questionCode,
+                    Answer = answerToken?.ToString() ?? ""
                 };
-            case QuestionType.Number:
+            case "Number":
                 return new NumericQuestionAnswer
                 {
-                    QuestionCode = jsonObject["questionCode"].ToString(),
-                    Answer = jsonObject["answer"].Value<decimal>()
+                    QuestionCode = questionCode,
+                    Answer = answerToken?.Value<decimal>() ?? 0M
                 };
-            case QuestionType.Choice:
+            case "Choice":
                 return new ChoiceQuestionAnswer
                 {
-                    QuestionCode = jsonObject["questionCode"].ToString(),
-                    Answer = jsonObject["answer"].ToString()
+                    QuestionCode = questionCode,
+                    Answer = answerToken?.ToString() ?? ""
                 };
             default:
-                throw new ApplicationException($"Unexpected question type {typeName}");
+                // Fallback: auto-detect from token type
+                if (answerToken != null && (answerToken.Type == JTokenType.Integer || answerToken.Type == JTokenType.Float))
+                    return new NumericQuestionAnswer { QuestionCode = questionCode, Answer = answerToken.Value<decimal>() };
+                return new ChoiceQuestionAnswer { QuestionCode = questionCode, Answer = answerToken?.ToString() ?? "" };
         }
     }
 }
