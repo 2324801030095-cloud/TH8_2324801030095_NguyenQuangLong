@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Elastic.Clients.Elasticsearch;
@@ -37,7 +37,7 @@ public class PolicyRepository : IPolicyRepository
                             )
                         ));
 
-        if (result.ApiCallDetails?.HttpStatusCode == 404)
+        if (!result.IsValidResponse || result.Documents == null)
         {
             return new List<Policy>();
         }
