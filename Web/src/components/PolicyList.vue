@@ -5,26 +5,26 @@
                 <h2 class="font-weight-bold text-dark mb-1">
                     <i class="fa fa-file-text-o text-primary mr-2"></i>Policy Management
                 </h2>
-                <p class="text-muted mb-0 small">Search active policies and click a row to view complete policy details.</p>
+                <p class="text-muted mb-0 small">Search active policies and click any row to view complete details.</p>
             </div>
             <div>
                 <span class="badge badge-light border px-3 py-2 text-secondary font-weight-bold">
-                    <i class="fa fa-list-ul mr-1 text-primary"></i> {{ policies ? policies.length : 0 }} Policies Found
+                    <i class="fa fa-list-ul mr-1 text-primary"></i> {{ policies ? policies.length : 0 }} Policies
                 </span>
             </div>
         </div>
 
-        <!-- Search Form Card -->
+        <!-- Filter & Search Box -->
         <div class="card border-0 shadow-sm rounded-lg p-3 mb-4 bg-white">
             <h6 class="font-weight-bold text-secondary mb-3">
-                <i class="fa fa-search text-primary mr-1"></i> Filter &amp; Search Policies
+                <i class="fa fa-search text-primary mr-1"></i> Search Policies
             </h6>
             <div class="form-row align-items-center">
                 <div class="col-md-5 mb-2 mb-md-0">
-                    <b-input v-model="filterFields.number" placeholder="Enter Policy number..." class="form-control" @keyup.enter.native="search()"/>
+                    <b-input v-model="filterFields.number" placeholder="Policy number..." class="form-control" @keyup.enter.native="search()"/>
                 </div>
                 <div class="col-md-5 mb-2 mb-md-0">
-                    <b-input v-model="filterFields.policyHolder" placeholder="Enter Policy Holder name..." class="form-control" @keyup.enter.native="search()"/>
+                    <b-input v-model="filterFields.policyHolder" placeholder="Policy Holder name..." class="form-control" @keyup.enter.native="search()"/>
                 </div>
                 <div class="col-md-2">
                     <b-button v-on:click="search()" variant="primary" class="btn-block font-weight-bold shadow-sm">
@@ -34,24 +34,13 @@
             </div>
         </div>
 
-        <!-- Results Table -->
+        <!-- Table -->
         <div class="card border-0 shadow-sm rounded-lg overflow-hidden bg-white">
-            <b-table hover responsive
+            <b-table bordered striped hover
                      :items="policies"
                      :fields="fields"
                      @row-clicked="showDetails"
-                     class="mb-0 custom-policy-table"
-                     thead-class="thead-light">
-                <template #cell(policyNumber)="data">
-                    <span class="font-weight-bold text-primary cursor-pointer">
-                        <i class="fa fa-file-text mr-1"></i> {{ data.value }}
-                    </span>
-                </template>
-                <template #cell(policyHolder)="data">
-                    <span class="font-weight-bold text-dark">
-                        <i class="fa fa-user text-secondary mr-1"></i> {{ data.value }}
-                    </span>
-                </template>
+                     class="mb-0 custom-table">
             </b-table>
         </div>
     </div>
@@ -66,10 +55,10 @@
         data() {
             return {
                 fields: [
-                    {key: 'policyNumber', label: 'Policy Number'},
-                    {key: 'policyStartDate', label: 'Start Date'},
-                    {key: 'policyEndDate', label: 'End Date'},
-                    {key: 'policyHolder', label: 'Policy Holder'}
+                    {key: 'policyNumber', label: 'Policy Number', sortable: true},
+                    {key: 'policyStartDate', label: 'Start Date', sortable: true},
+                    {key: 'policyEndDate', label: 'End Date', sortable: true},
+                    {key: 'policyHolder', label: 'Policy Holder', sortable: true}
                 ],
                 policies: [],
                 filterFields: {
@@ -98,24 +87,23 @@
                 });
             },
             addCriteria(queryString, criteria) {
-                if (criteria) {
-                    if (queryString.length > 0)
-                        queryString += AND;
-                    queryString += criteria;
-                }
+                if(criteria !== '')
+                    queryString += criteria + AND;
+
                 return queryString;
             },
             formatQueryString(queryString) {
-                if (queryString.length > 0)
-                    queryString = '?q=' + queryString;
-                return queryString;
+                if(queryString.endsWith(AND))
+                    queryString = queryString.substring(0, queryString.length - AND.length);
+
+                return queryString !== '' ? '?q=' + queryString : '';
             }
         }
     }
 </script>
 
 <style scoped lang="scss">
-    .custom-policy-table {
+    .custom-table {
         cursor: pointer;
     }
 </style>
