@@ -1,14 +1,18 @@
+using System;
+using System.Collections.Generic;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using Blazored.SessionStorage;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.Logging;
 
 namespace BlazorWasmClient.Components.Auth;
 
 public class CustomAuthenticationStateProvider : AuthenticationStateProvider
 {
-    private ISessionStorageService sessionStorageService;
-    private ILogger<CustomAuthenticationStateProvider> logger;
-    private ClaimsPrincipal anonymous = new ClaimsPrincipal(new ClaimsIdentity[]{});
+    private readonly ISessionStorageService sessionStorageService;
+    private readonly ILogger<CustomAuthenticationStateProvider> logger;
+    private readonly ClaimsPrincipal anonymous = new ClaimsPrincipal(new ClaimsIdentity());
 
     public CustomAuthenticationStateProvider(ISessionStorageService sessionStorageService, ILogger<CustomAuthenticationStateProvider> logger)
     {
@@ -21,21 +25,21 @@ public class CustomAuthenticationStateProvider : AuthenticationStateProvider
         try
         {
             var userSession = await sessionStorageService.ReadEncryptedItem<UserSession>("UserSession");
-            if (userSession == null)
-                return await Task.FromResult(new AuthenticationState(anonymous));
+            if (userSession == null || string.IsNullOrWhiteSpace(userSession.Token))
+                return new AuthenticationState(anonymous);
 
-            var claimsPrinciple = new ClaimsPrincipal(new ClaimsIdentity(new List<Claim>
+            var claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new List<Claim>
             {
-                new Claim(ClaimTypes.Name, userSession.UserName),
-                new Claim(ClaimTypes.Role, userSession.Role),
+                new Claim(ClaimTypes.Name, userSession.UserName ?? ""),
+                new Claim(ClaimTypes.Role, userSession.Role ?? ""),
             }, "JwtAuth"));
             
-            return await Task.FromResult(new AuthenticationState(claimsPrinciple));
+            return new AuthenticationState(claimsPrincipal);
         }
         catch (Exception ex)
         {
-            logger.LogError("Exception in auth state provider", ex);
-            return await Task.FromResult(new AuthenticationState(anonymous));
+            logger.LogError(ex, "Exception in auth state provider");
+            return new AuthenticationState(anonymous);
         }
     }
 
@@ -43,13 +47,13 @@ public class CustomAuthenticationStateProvider : AuthenticationStateProvider
     {
         ClaimsPrincipal claimsPrincipal = anonymous;
 
-        if (userSession != null)
+        if (userSession != null && !string.IsNullOrWhiteSpace(userSession.Token))
         {
-            var claimsPrinciple = new ClaimsPrincipal(new ClaimsIdentity(new List<Claim>
+            claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new List<Claim>
             {
-                new Claim(ClaimTypes.Name, userSession.UserName),
-                new Claim(ClaimTypes.Role, userSession.Role),
-            }));
+                new Claim(ClaimTypes.Name, userSession.UserName ?? ""),
+                new Claim(ClaimTypes.Role, userSession.Role ?? ""),
+            }, "JwtAuth"));
             await sessionStorageService.SaveItemAsEncrypted("UserSession", userSession);
         }
         else
@@ -62,15 +66,22 @@ public class CustomAuthenticationStateProvider : AuthenticationStateProvider
 
     public async Task<string> GetToken()
     {
-        var result = string.Empty;
-
-        var userSession = await sessionStorageService.ReadEncryptedItem<UserSession>("UserSession");
-        if (userSession != null && DateTime.Now < userSession.ExpiryTimestamp)
+        try
         {
-            return userSession.Token;
+            var userSession = await sessionStorageService.ReadEncryptedItem<UserSession>("UserSession");
+            if (userSession != null && !string.IsNullOrWhiteSpace(userSession.Token))
+            {
+                if (userSession.ExpiryTimestamp == default || userSession.ExpiryTimestamp == DateTime.MinValue || DateTime.Now < userSession.ExpiryTimestamp)
+                {
+                    return userSession.Token;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Exception getting token from session storage");
         }
         
-        return result;
+        return string.Empty;
     }
-    
 }

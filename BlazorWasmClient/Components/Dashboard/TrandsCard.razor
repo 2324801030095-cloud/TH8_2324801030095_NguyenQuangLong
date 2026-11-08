@@ -43,33 +43,47 @@
 
     private async Task HandleRedraw()
     {
-        
-        var trendsData = await LoadData();
-        
-        await lineChart.Clear();
-        
-        await lineChart.AddLabelsDatasetsAndUpdate
-        (
-            trendsData.PeriodsSales.Select(ps=>ps.Period).ToList(),
-            new LineChartDataset<decimal>()
-            {
-                Label = "Agents sales (EUR)",
-                Data = trendsData.PeriodsSales.Select(ps=>ps.Sales.PremiumAmount).ToList(),
-                BorderWidth = 1, 
-                BackgroundColor = "rgba(138, 22, 82, 0.8)"
-            }
-        );
+        try
+        {
+            var trendsData = await LoadData();
+            if (trendsData?.PeriodsSales == null || lineChart == null)
+                return;
+            
+            await lineChart.Clear();
+            
+            await lineChart.AddLabelsDatasetsAndUpdate
+            (
+                trendsData.PeriodsSales.Select(ps => ps.Period).ToList(),
+                new LineChartDataset<decimal>()
+                {
+                    Label = "Agents sales (EUR)",
+                    Data = trendsData.PeriodsSales.Select(ps => ps.Sales?.PremiumAmount ?? 0M).ToList(),
+                    BorderWidth = 1, 
+                    BackgroundColor = "rgba(138, 22, 82, 0.8)"
+                }
+            );
+        }
+        catch (Exception)
+        {
+        }
     }
 
     private async Task<GetSalesTrendsResult> LoadData()
     {
-        var getAgentsSales = await DashboardClient.GetSalesTrends(new GetSalesTrendsQuery
+        try
         {
-            SalesDateFrom = PeriodFrom,
-            SalesDateTo = PeriodTo,
-            Unit = TimeUnit.Month
-        });
-        
-        return getAgentsSales.Result;
+            var getAgentsSales = await DashboardClient.GetSalesTrends(new GetSalesTrendsQuery
+            {
+                SalesDateFrom = PeriodFrom,
+                SalesDateTo = PeriodTo,
+                Unit = TimeUnit.Month
+            });
+            
+            return getAgentsSales?.Result;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

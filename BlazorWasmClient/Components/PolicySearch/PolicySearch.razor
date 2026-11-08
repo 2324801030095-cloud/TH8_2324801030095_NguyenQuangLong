@@ -34,7 +34,7 @@
                     </Row>
                 </CardBody>
                 
-                @if (Policies.Any())
+                @if (Policies != null && Policies.Any())
                 {
                     <CardBody>
                         <Table Bordered Striped>
@@ -64,11 +64,8 @@
     </Column>
 </Row>
 
-
-
-
 @code {
-    private List<PolicyDto> Policies { get; set; } = new List<PolicyDto>() { };
+    private List<PolicyDto> Policies { get; set; } = new List<PolicyDto>();
     private PolicySearchCriteriaModel CriteriaModel { get; set; } = new();
     [Inject] 
     protected PolicySearchClient PolicySearchClient { get; set; }
@@ -80,18 +77,26 @@
     
     protected async Task Search()
     {
-        var searchResult = await PolicySearchClient.SearchPolicies
-        (
-            CriteriaModel.PolicyNumber,
-            CriteriaModel.PolicyHolder
-        );
-
-        if (searchResult.IsError)
+        try
         {
-            
+            var searchResult = await PolicySearchClient.SearchPolicies
+            (
+                CriteriaModel?.PolicyNumber,
+                CriteriaModel?.PolicyHolder
+            );
+
+            if (searchResult != null && searchResult.IsSuccess && searchResult.Result?.Policies != null)
+            {
+                Policies = searchResult.Result.Policies;
+            }
+            else
+            {
+                Policies = new List<PolicyDto>();
+            }
         }
-
-        Policies = searchResult.Result.Policies;
-
+        catch (Exception)
+        {
+            Policies = new List<PolicyDto>();
+        }
     }
 }

@@ -14,23 +14,18 @@
             Amount="@TotalAmount" 
             Icon="IconName.MoneyBillAlt"></TotalSalesCard>
     
-    
-    
         <TotalSalesCard 
             Title="Num. policies" 
             Amount="@TotalPolicies" 
             Icon="IconName.Book"></TotalSalesCard>
     
-    
         @foreach (var prodTotalSale in ProductTotalSalesModels)
         {
-            
             <TotalSalesCard 
                 Title="@prodTotalSale.Name" 
                 Amount="@prodTotalSale.TotalPremium" 
                 PoliciesCount="@prodTotalSale.TotalPolicies" 
                 Icon="@prodTotalSale.Icon"></TotalSalesCard>
-            
         }
     </CardDeck>
 </Row>
@@ -41,9 +36,7 @@
     <TrandsCard PeriodFrom="@PeriodFrom" PeriodTo="@PeriodTo"></TrandsCard>
 </CardDeck>
 
-
 @code {
-
     [Inject]
     private ProductsClient ProductsClient { get; set; }
     
@@ -53,7 +46,7 @@
     [Inject]
     private INotificationService NotificationService { get; set; }
 
-    private IEnumerable<ProductDto> Products { get; set; } = new List<ProductDto> {};
+    private IEnumerable<ProductDto> Products { get; set; } = new List<ProductDto>();
     private decimal TotalAmount { get; set; }
     private long TotalPolicies { get; set; }
     private List<ProductTotalSalesModel> ProductTotalSalesModels { get; set; } = new();
@@ -63,44 +56,50 @@
     
     protected override async Task OnInitializedAsync()
     {
-        var getAllProductsResult = await ProductsClient.GetAllProducts();
-
-        if (!getAllProductsResult.IsSuccess)
+        try
         {
-            await NotificationService.Error("Error while loading products data. Please try again.", "Error");
-            return;
+            var getAllProductsResult = await ProductsClient.GetAllProducts();
+
+            if (getAllProductsResult != null && getAllProductsResult.IsSuccess && getAllProductsResult.Result != null)
+            {
+                Products = getAllProductsResult.Result;
+            }
+
+            var getTotalSalesResult = await DashboardClient.GetTotalSales(new GetTotalSalesQuery
+            {
+                ProductCode = null,
+                SalesDateFrom = PeriodFrom,
+                SalesDateTo = PeriodTo
+            });
+
+            if (getTotalSalesResult != null && getTotalSalesResult.IsSuccess && getTotalSalesResult.Result != null)
+            {
+                TotalAmount = getTotalSalesResult.Result.Total?.PremiumAmount ?? 0M;
+                TotalPolicies = getTotalSalesResult.Result.Total?.PoliciesCount ?? 0;
+                ProductTotalSalesModels.Clear();
+                if (getTotalSalesResult.Result.PerProductTotal != null)
+                {
+                    ProductTotalSalesModels = getTotalSalesResult.Result.PerProductTotal
+                        .Select(kv => {
+                            var prod = Products?.FirstOrDefault(p => p.Code == kv.Key);
+                            var name = prod?.Name ?? kv.Key;
+                            var icon = prod != null ? ProductIcons.FromProductIcon(prod.Icon) : IconName.FileAlt;
+                            return new ProductTotalSalesModel
+                            (
+                                kv.Key,
+                                name,
+                                icon,
+                                kv.Value?.PremiumAmount ?? 0M, 
+                                kv.Value?.PoliciesCount ?? 0
+                            );
+                        })
+                        .ToList();
+                }
+            }
         }
-        Products = getAllProductsResult.Result;
-
-        var getTotalSalesResult = await DashboardClient.GetTotalSales(new GetTotalSalesQuery
+        catch (Exception)
         {
-            ProductCode = null,
-            SalesDateFrom = PeriodFrom,
-            SalesDateTo = PeriodTo
-        });
-
-        if (getTotalSalesResult.IsSuccess)
-        {
-            TotalAmount = getTotalSalesResult.Result.Total.PremiumAmount;
-            TotalPolicies = getTotalSalesResult.Result.Total.PoliciesCount;
-            ProductTotalSalesModels.Clear();
-            ProductTotalSalesModels = getTotalSalesResult.Result.PerProductTotal
-                .Select(kv => {
-                    var prod = Products.FirstOrDefault(p => p.Code == kv.Key);
-                    var name = prod?.Name ?? kv.Key;
-                    var icon = prod != null ? ProductIcons.FromProductIcon(prod.Icon) : IconName.FileAlt;
-                    return new ProductTotalSalesModel
-                    (
-                        kv.Key,
-                        name,
-                        icon,
-                        kv.Value.PremiumAmount, 
-                        kv.Value.PoliciesCount
-                    );
-                })
-                .ToList();
+            // Safeguard against unhandled exceptions on Dashboard page
         }
-    
     }
-
 }

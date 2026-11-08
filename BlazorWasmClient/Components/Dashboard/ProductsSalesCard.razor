@@ -42,14 +42,18 @@
 
     private async Task Redraw()
     {
-        var salesData = await LoadData();
-        
-        await pieChart.Clear();
+        try
+        {
+            var salesData = await LoadData();
+            if (salesData?.PerProductTotal == null || pieChart == null)
+                return;
+            
+            await pieChart.Clear();
 
-        var labels = salesData.PerProductTotal.Select(p => p.Key).ToList();
-        var data = salesData.PerProductTotal.Select(p => p.Value.PremiumAmount).ToList();
+            var labels = salesData.PerProductTotal.Select(p => p.Key).ToList();
+            var data = salesData.PerProductTotal.Select(p => p.Value?.PremiumAmount ?? 0M).ToList();
 
-        await pieChart.AddLabelsDatasetsAndUpdate
+            await pieChart.AddLabelsDatasetsAndUpdate
             (
                 labels,
                 new PieChartDataset<decimal>()
@@ -67,18 +71,27 @@
                     HoverOffset = 4
                 }
             );
-
+        }
+        catch (Exception)
+        {
+        }
     }
 
     private async Task<GetTotalSalesResult> LoadData()
     {
-        var totalSales = await DashboardClient.GetTotalSales(new GetTotalSalesQuery
+        try
         {
-            SalesDateFrom = PeriodFrom,
-            SalesDateTo = PeriodTo
-        });
+            var totalSales = await DashboardClient.GetTotalSales(new GetTotalSalesQuery
+            {
+                SalesDateFrom = PeriodFrom,
+                SalesDateTo = PeriodTo
+            });
 
-        return totalSales.Result;
+            return totalSales?.Result;
+        }
+        catch
+        {
+            return null;
+        }
     }
-
 }

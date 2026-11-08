@@ -42,32 +42,46 @@
 
     private async Task HandleRedraw()
     {
-        var agentSalesData = await LoadData();
-        
-        await barChart.Clear();
-        
-        await barChart.AddLabelsDatasetsAndUpdate
-        (
-            agentSalesData.PerAgentTotal.Select(kv=>kv.Key).ToList(),
-            new BarChartDataset<decimal>
-            {
-                Label = "Agents sales (EUR)",
-                Data = agentSalesData.PerAgentTotal.Select(kv=>kv.Value.PremiumAmount).ToList(),
-                BorderWidth = 1, 
-                BackgroundColor = "rgba(138, 22, 82, 0.8)"
-            }
-        );
+        try
+        {
+            var agentSalesData = await LoadData();
+            if (agentSalesData?.PerAgentTotal == null || barChart == null)
+                return;
+            
+            await barChart.Clear();
+            
+            await barChart.AddLabelsDatasetsAndUpdate
+            (
+                agentSalesData.PerAgentTotal.Select(kv => kv.Key).ToList(),
+                new BarChartDataset<decimal>
+                {
+                    Label = "Agents sales (EUR)",
+                    Data = agentSalesData.PerAgentTotal.Select(kv => kv.Value?.PremiumAmount ?? 0M).ToList(),
+                    BorderWidth = 1, 
+                    BackgroundColor = "rgba(138, 22, 82, 0.8)"
+                }
+            );
+        }
+        catch (Exception)
+        {
+        }
     }
 
     private async Task<GetAgentsSalesResult> LoadData()
     {
-        var getAgentsSales = await DashboardClient.GetAgentsSales(new GetAgentsSalesQuery
+        try
         {
-            SalesDateFrom = PeriodFrom,
-            SalesDateTo = PeriodTo
-        });
-        
-        return getAgentsSales.Result;
+            var getAgentsSales = await DashboardClient.GetAgentsSales(new GetAgentsSalesQuery
+            {
+                SalesDateFrom = PeriodFrom,
+                SalesDateTo = PeriodTo
+            });
+            
+            return getAgentsSales?.Result;
+        }
+        catch
+        {
+            return null;
+        }
     }
-
 }
