@@ -85,14 +85,19 @@
             TotalPolicies = getTotalSalesResult.Result.Total.PoliciesCount;
             ProductTotalSalesModels.Clear();
             ProductTotalSalesModels = getTotalSalesResult.Result.PerProductTotal
-                .Select(kv => new ProductTotalSalesModel
+                .Select(kv => {
+                    var prod = Products.FirstOrDefault(p => p.Code == kv.Key);
+                    var name = prod?.Name ?? kv.Key;
+                    var icon = prod != null ? ProductIcons.FromProductIcon(prod.Icon) : IconName.FileAlt;
+                    return new ProductTotalSalesModel
                     (
                         kv.Key,
-                        Products.First(p=>p.Code==kv.Key).Name,
-                        ProductIcons.FromProductIcon(Products.First(p=>p.Code==kv.Key).Icon),
+                        name,
+                        icon,
                         kv.Value.PremiumAmount, 
                         kv.Value.PoliciesCount
-                    ))
+                    );
+                })
                 .ToList();
         }
     

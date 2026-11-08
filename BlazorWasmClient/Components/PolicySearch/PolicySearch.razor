@@ -73,6 +73,11 @@
     [Inject] 
     protected PolicySearchClient PolicySearchClient { get; set; }
     
+    protected override async Task OnInitializedAsync()
+    {
+        await Search();
+    }
+    
     protected async Task Search()
     {
         var searchResult = await PolicySearchClient.SearchPolicies
