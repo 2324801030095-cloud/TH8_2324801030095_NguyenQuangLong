@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DynamicExpresso;
@@ -54,8 +54,41 @@ public class Calculation
 
         foreach (var question in Subject)
         {
-            parameters.Add(new Parameter(question.Key, question.Value.GetType()));
-            values.Add(question.Value);
+            var val = question.Value;
+            var type = val?.GetType() ?? typeof(string);
+
+            // Safety: Convert any numeric strings or numerical question codes to decimal for DynamicExpresso formulas
+            if (val != null)
+            {
+                if (val is int intVal)
+                {
+                    val = (decimal)intVal;
+                    type = typeof(decimal);
+                }
+                else if (val is long longVal)
+                {
+                    val = (decimal)longVal;
+                    type = typeof(decimal);
+                }
+                else if (val is double doubleVal)
+                {
+                    val = (decimal)doubleVal;
+                    type = typeof(decimal);
+                }
+                else if (val is string strVal && decimal.TryParse(strVal, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var decVal))
+                {
+                    if (question.Key.StartsWith("NUM_", StringComparison.OrdinalIgnoreCase) ||
+                        question.Key.Equals("AREA", StringComparison.OrdinalIgnoreCase) ||
+                        question.Key.Equals("NUM_OF_CLAIM", StringComparison.OrdinalIgnoreCase))
+                    {
+                        val = decVal;
+                        type = typeof(decimal);
+                    }
+                }
+            }
+
+            parameters.Add(new Parameter(question.Key, type));
+            values.Add(val);
         }
 
         return (parameters, values);

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PolicyService.Api.Commands.Dtos;
@@ -9,15 +10,16 @@ internal class QuestionAnswerConverter : JsonConverter
 {
     public override bool CanConvert(Type objectType)
     {
-        return objectType.IsAssignableFrom(typeof(QuestionAnswer));
+        return typeof(QuestionAnswer).IsAssignableFrom(objectType);
     }
 
     public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
     {
+        if (reader.TokenType == JsonToken.Null)
+            return null;
+
         var jsonObject = JObject.Load(reader);
-        var target = Create(jsonObject);
-        serializer.Populate(jsonObject.CreateReader(), target);
-        return target;
+        return Create(jsonObject);
     }
 
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
@@ -28,7 +30,7 @@ internal class QuestionAnswerConverter : JsonConverter
             writer.WritePropertyName("questionCode");
             serializer.Serialize(writer, questionAnswer.QuestionCode);
             writer.WritePropertyName("questionType");
-            serializer.Serialize(writer, questionAnswer.QuestionType);
+            serializer.Serialize(writer, questionAnswer.QuestionType.ToString());
             writer.WritePropertyName("answer");
             serializer.Serialize(writer, questionAnswer.GetAnswer());
             writer.WriteEndObject();
@@ -37,54 +39,100 @@ internal class QuestionAnswerConverter : JsonConverter
 
     private static QuestionAnswer Create(JObject jsonObject)
     {
-        // Check if questionType is present (may be missing when sent from Blazor WASM)
-        var questionTypeToken = jsonObject["questionType"];
+        var questionCode = (jsonObject.GetValue("questionCode", StringComparison.OrdinalIgnoreCase)
+                           ?? jsonObject.GetValue("QuestionCode", StringComparison.OrdinalIgnoreCase))?.ToString() ?? "";
 
-        if (questionTypeToken == null)
+        var questionTypeToken = jsonObject.GetValue("questionType", StringComparison.OrdinalIgnoreCase)
+                                ?? jsonObject.GetValue("QuestionType", StringComparison.OrdinalIgnoreCase);
+
+        var answerToken = jsonObject.GetValue("answer", StringComparison.OrdinalIgnoreCase)
+                          ?? jsonObject.GetValue("Answer", StringComparison.OrdinalIgnoreCase);
+
+        var typeStr = questionTypeToken?.ToString()?.Trim();
+        if (string.Equals(typeStr, "Number", StringComparison.OrdinalIgnoreCase))
+            typeStr = "Numeric";
+
+        // If type is explicitly specified
+        if (!string.IsNullOrEmpty(typeStr))
         {
-            // Auto-detect type from the answer value's JSON token type
-            var answerToken = jsonObject["answer"];
-            var questionCode = jsonObject["questionCode"]?.ToString() ?? "";
-
-            if (answerToken != null && (answerToken.Type == JTokenType.Integer || answerToken.Type == JTokenType.Float))
+            if (string.Equals(typeStr, "Numeric", StringComparison.OrdinalIgnoreCase))
             {
                 return new NumericQuestionAnswer
                 {
                     QuestionCode = questionCode,
-                    Answer = answerToken.Value<decimal>()
+                    Answer = ParseDecimal(answerToken)
                 };
             }
-            // Default to ChoiceQuestionAnswer for string answers (covers both Text and Choice)
+
+            if (string.Equals(typeStr, "Text", StringComparison.OrdinalIgnoreCase))
+            {
+                return new TextQuestionAnswer
+                {
+                    QuestionCode = questionCode,
+                    Answer = answerToken?.ToString() ?? ""
+                };
+            }
+
+            if (string.Equals(typeStr, "Choice", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ChoiceQuestionAnswer
+                {
+                    QuestionCode = questionCode,
+                    Answer = answerToken?.ToString() ?? ""
+                };
+            }
+        }
+
+        // Auto-detect if questionType is missing or unknown
+        if (answerToken != null)
+        {
+            if (answerToken.Type == JTokenType.Integer || answerToken.Type == JTokenType.Float)
+            {
+                return new NumericQuestionAnswer
+                {
+                    QuestionCode = questionCode,
+                    Answer = ParseDecimal(answerToken)
+                };
+            }
+
+            var rawStr = answerToken.ToString();
+            if (decimal.TryParse(rawStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedVal)
+                && (questionCode.StartsWith("NUM_", StringComparison.OrdinalIgnoreCase)
+                    || questionCode.StartsWith("AREA", StringComparison.OrdinalIgnoreCase)
+                    || questionCode.Contains("COUNT", StringComparison.OrdinalIgnoreCase)))
+            {
+                return new NumericQuestionAnswer
+                {
+                    QuestionCode = questionCode,
+                    Answer = parsedVal
+                };
+            }
+
             return new ChoiceQuestionAnswer
             {
                 QuestionCode = questionCode,
-                Answer = answerToken?.ToString() ?? ""
+                Answer = rawStr
             };
         }
 
-        var typeName = Enum.Parse<QuestionType>(questionTypeToken.ToString());
-        switch (typeName)
+        return new ChoiceQuestionAnswer
         {
-            case QuestionType.Text:
-                return new TextQuestionAnswer
-                {
-                    QuestionCode = jsonObject["questionCode"].ToString(),
-                    Answer = jsonObject["answer"].ToString()
-                };
-            case QuestionType.Numeric:
-                return new NumericQuestionAnswer
-                {
-                    QuestionCode = jsonObject["questionCode"].ToString(),
-                    Answer = jsonObject["answer"].Value<decimal>()
-                };
-            case QuestionType.Choice:
-                return new ChoiceQuestionAnswer
-                {
-                    QuestionCode = jsonObject["questionCode"].ToString(),
-                    Answer = jsonObject["answer"].ToString()
-                };
-            default:
-                throw new ApplicationException($"Unexpected question type {typeName}");
-        }
+            QuestionCode = questionCode,
+            Answer = ""
+        };
+    }
+
+    private static decimal ParseDecimal(JToken token)
+    {
+        if (token == null)
+            return 0M;
+
+        if (token.Type == JTokenType.Integer || token.Type == JTokenType.Float)
+            return token.Value<decimal>();
+
+        if (decimal.TryParse(token.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        return 0M;
     }
 }
