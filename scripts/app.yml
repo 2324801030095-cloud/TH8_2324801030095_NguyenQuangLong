@@ -59,6 +59,7 @@ services:
     - 5050:5050
     environment:
       ConnectionStrings__DefaultConnection: "${POLICY_DB_CONNECTION:-Host=postgres;Port=5432;Database=lab_netmicro_policy;Username=lab_user;Password=lab_pass}"
+      PricingServiceUri: "http://PricingService"
 
   dotnet-pricing-service:
     build: 
